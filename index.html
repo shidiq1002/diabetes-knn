@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prediksi Risiko Diabetes dengan KNN</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1b2430;--mu:#5d6b7c;--bd:#dde2e8;--ac:#2563eb;--hi:#dc2626;--lo:#16a34a;--sel:#fff7d6;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10151c;--card:#19212b;--tx:#e8edf3;--mu:#9aa8b8;--bd:#2c3745;--ac:#6ea0ff;--hi:#f87171;--lo:#4ade80;--sel:#3a3417;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10151c;--card:#19212b;--tx:#e8edf3;--mu:#9aa8b8;--bd:#2c3745;--ac:#6ea0ff;--hi:#f87171;--lo:#4ade80;--sel:#3a3417;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:860px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:0 0 12px}
+p.s{color:var(--mu);margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+label{display:block;font-size:13px;color:var(--mu);margin-bottom:3px}
+input,select{width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}
+.row{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.row label{display:flex;gap:6px;align-items:center;margin:0;color:var(--tx)}
+.row input[type=checkbox]{width:auto}
+button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:9px 18px;font:inherit;font-weight:600;cursor:pointer}
+button.g{background:transparent;color:var(--ac);border:1px solid var(--ac)}
+.sc{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:560px}
+th,td{padding:6px 8px;border-bottom:1px solid var(--bd);text-align:center;white-space:nowrap}
+th{color:var(--mu);font-weight:600;font-size:13px}
+tr.n td{background:var(--sel)}
+.t{color:var(--hi);font-weight:600}.r{color:var(--lo);font-weight:600}
+#res{font-size:18px;font-weight:700;padding:12px;border-radius:10px;border:2px solid var(--bd);text-align:center}
+#res.hi{border-color:var(--hi);color:var(--hi)}#res.lo{border-color:var(--lo);color:var(--lo)}
+.mu{color:var(--mu);font-size:13px}
+</style>
+</head>
+<body>
+<main>
+<h1>Prediksi Risiko Diabetes (KNN)</h1>
+<p class="s">Studi kasus K-Nearest Neighbors: mengklasifikasikan pasien baru sebagai Risiko Rendah (0) atau Risiko Tinggi (1).</p>
+
+<div class="card">
+<h2>1. Data Pasien Baru</h2>
+<div class="grid">
+<div><label>Usia</label><input id="age" type="number" value="42"></div>
+<div><label>BMI</label><input id="bmi" type="number" step="0.1" value="28.5"></div>
+<div><label>Glukosa</label><input id="glu" type="number" value="130"></div>
+<div><label>Tekanan Darah</label><input id="bp" type="number" value="128"></div>
+<div><label>Riwayat Keluarga</label><select id="fam"><option value="1" selected>1 – Ada</option><option value="0">0 – Tidak ada</option></select></div>
+<div><label>Nilai K</label><input id="k" type="number" min="1" max="10" value="3"></div>
+</div>
+<div class="row">
+<label><input id="norm" type="checkbox"> Normalisasi Min-Max</label>
+<button onclick="run()">Hitung Prediksi</button>
+<button class="g" onclick="reset()">Reset</button>
+</div>
+</div>
+
+<div class="card">
+<h2>2. Hasil Prediksi</h2>
+<div id="res">–</div>
+<p class="mu" id="vote"></p>
+</div>
+
+<div class="card">
+<h2>3. Jarak Euclidean ke Setiap Pasien</h2>
+<p class="mu">Baris berwarna kuning adalah K tetangga terdekat.</p>
+<div class="sc"><table id="tb"></table></div>
+</div>
+
+</main>
+
+<script>
+var DATA=[
+["P01",25,21.5,90,110,0,0],["P02",30,23.1,95,115,0,0],["P03",35,25.0,105,120,0,0],
+["P04",40,27.5,120,125,1,1],["P05",45,30.2,140,135,1,1],["P06",50,31.5,155,140,1,1],
+["P07",55,33.0,165,145,1,1],["P08",28,22.5,92,112,0,0],["P09",38,26.8,115,122,0,0],
+["P10",48,29.5,145,130,1,1]];
+function run(){
+  var q=[+age.value,+bmi.value,+glu.value,+bp.value,+fam.value];
+  var k=Math.max(1,Math.min(DATA.length,parseInt(k_.value)||3));
+  var f=function(r){return r.slice(1,6)};
+  var mn=[],mx=[];
+  for(var j=0;j<5;j++){var col=DATA.map(function(r){return r[j+1]}).concat(q[j]);mn[j]=Math.min.apply(0,col);mx[j]=Math.max.apply(0,col)}
+  var sc=function(v,j){return norm.checked?(mx[j]===mn[j]?0:(v-mn[j])/(mx[j]-mn[j])):v};
+  var rows=DATA.map(function(r){
+    var s=0;for(var j=0;j<5;j++){var d=sc(r[j+1],j)-sc(q[j],j);s+=d*d}
+    return{id:r[0],a:f(r),c:r[6],d:Math.sqrt(s)}
+  }).sort(function(a,b){return a.d-b.d});
+  var top=rows.slice(0,k),hi=top.filter(function(r){return r.c===1}).length,lo=k-hi;
+  var out=hi>lo?1:0;
+  res.className=out?"hi":"lo";
+  res.textContent=out?"Kelas 1 – Risiko Tinggi":"Kelas 0 – Risiko Rendah";
+  vote.textContent="K = "+k+" → suara Tinggi: "+hi+", suara Rendah: "+lo+". Tetangga: "+top.map(function(r){return r.id}).join(", ")+".";
+  var h="<tr><th>Rank</th><th>Pasien</th><th>Usia</th><th>BMI</th><th>Glukosa</th><th>TD</th><th>Riwayat</th><th>Kelas</th><th>Jarak</th></tr>";
+  rows.forEach(function(r,i){
+    h+="<tr"+(i<k?" class='n'":"")+"><td>"+(i+1)+"</td><td>"+r.id+"</td><td>"+r.a.join("</td><td>")+"</td><td class='"+(r.c?"t'>Tinggi":"r'>Rendah")+"</td><td>"+r.d.toFixed(4)+"</td></tr>";
+  });
+  tb.innerHTML=h;
+}
+var k_=document.getElementById("k");
+function reset(){age.value=42;bmi.value=28.5;glu.value=130;bp.value=128;fam.value=1;k_.value=3;norm.checked=false;run()}
+run();
+</script>
+</body>
+</html>
